@@ -8,15 +8,14 @@ from ddsd_config import get_config
 from ddsd_utils import *
 from ddsd_builder import *
 from get_dataset import get_file_paths_and_labels, make_dataset
-from evaluation import evaluate_model, save_results
+from evaluation import evaluate_model, save_results, log_experiment_to_csv
 
 def main():
     # Parse configuration
     args, derived = get_config()
     
     # Setup directories
-    os.makedirs(SAVE_DIR, exist_ok=True)
-    os.makedirs(LOGS_DIR, exist_ok=True)
+    os.makedirs(RETRAINED_MODELS_DIR, exist_ok=True)
     
     # Load data
     print(f"Loading data from {DATA_DIR}...")
@@ -25,7 +24,9 @@ def main():
     )
     
     # Split data
-    train_ds, val_ds, test_ds = split_dataset(filepaths, labels, args, derived)
+    train_ds, val_ds, test_ds, n_train, n_val, n_test = split_dataset(
+        filepaths, labels, args, derived
+    )
     
     # Load pretrained model
     print(f"Loading pretrained model from {PRETRAINED_MODEL_PATH}...")
@@ -47,22 +48,35 @@ def main():
     model = compile_model(model, learning_rate=args.learning_rate)
     print_model_info(model)
     
+    # Get model stats
+    total_params = sum(tf.size(w).numpy() for w in model.weights)
+    trainable_params = sum(tf.size(w).numpy() for w in model.trainable_weights)
+    
     # Train
+    history = None
     if args.train_mode != "baseline":
         print("Starting training...")
         history = train_model(model, train_ds, val_ds, args)
     else:
-        history = None
+        print("Baseline mode: skipping training")
     
     # Evaluate
     print("Evaluating on test set...")
     metrics = evaluate_model(model, test_ds)
     
-    # Save
+    # Save model, history, and results
     print("Saving results...")
-    save_results(model, metrics, history, args, derived)
+    model_name, total_params, trainable_params = save_results(
+        model, metrics, history, args, derived
+    )
     
-    print("✅ Done!")
+    # Log to CSV
+    log_experiment_to_csv(
+        model_name, metrics, history, args, derived, 
+        n_train, n_val, n_test, trainable_params, total_params
+    )
+    
+    print("✅ Training pipeline complete!")
 
 if __name__ == '__main__':
     main()

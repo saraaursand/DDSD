@@ -4,7 +4,7 @@ Adapted from kws_utils.py for binary classification task
 """
 
 # Import base utilities from kws_utils
-from kws_utils import *
+from kws_util import *
 
 # Override/add DDSD-specific parameters
 NUM_CLASSES = 2
@@ -17,8 +17,9 @@ DATA_DIR = "data"
 
 # Model paths
 PRETRAINED_MODEL_PATH = "trained_models/kws_ref_model"
+RETRAINED_MODELS_DIR = "retrained_models"
 SAVE_DIR = "retrained_models"
 LOGS_DIR = "logs"
 
 # Keep all audio processing params from kws_utils
-# (sample_rate, clip_duration_ms, window_size_ms, etc.)
+# (sample_rate, clip_duration_ms, window_size_ms, etc.)s
