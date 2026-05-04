@@ -194,7 +194,7 @@ def log_experiment_to_csv(csv_path, model_name, metrics, history, args, derived,
     removed_blocks = ','.join(str(b) for b in args.remove_blocks) if args.remove_blocks else "-"
     
     # Calculate model size in MB
-    model_size_mb = (total_params * 4) / (1024 * 1024)
+    model_size_kb = (total_params * 4) / 1024
     
     # Build CSV row
     row = {
@@ -247,7 +247,7 @@ def log_experiment_to_csv(csv_path, model_name, metrics, history, args, derived,
         # Model size
         "total_params": total_params,
         "trainable_params": trainable_params,
-        "model_size_mb": round(model_size_mb, 2),
+        "model_size_kb": round(model_size_kb, 1),
     }
     
     # Write CSV

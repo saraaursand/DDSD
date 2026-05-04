@@ -1,67 +1,219 @@
+# DDSD Transfer Learning Experiments Configuration
+# Run with: python src/run_experiments.py experiments.yaml
+
 experiments:
-  - name: "baseline"
-    train_mode: "baseline"
+
+  # =========================================================================
+  # PHASE 2: HEAD-ONLY TRAINING (3 LR × 3 BS = 9 experiments)
+  # =========================================================================
+  # Purpose: Train only the binary head on top of frozen pre-trained body
+  # Learning rates: 1e-4, 1e-3, 1e-2
+  # Batch sizes: 64, 32, 16
   
-  - name: "scratch_lr1e-4"
+  - name: "head_lr1e-4_bs64"
+    train_mode: "head"
+    learning_rate: 1e-4
+    batch_size: 64
+    epochs: 100
+    noise_type: "none"
+
+  - name: "head_lr1e-4_bs32"
+    train_mode: "head"
+    learning_rate: 1e-4
+    batch_size: 32
+    epochs: 100
+    noise_type: "none"
+
+  - name: "head_lr1e-4_bs16"
+    train_mode: "head"
+    learning_rate: 1e-4
+    batch_size: 16
+    epochs: 100
+    noise_type: "none"
+
+  - name: "head_lr1e-3_bs64"
+    train_mode: "head"
+    learning_rate: 1e-3
+    batch_size: 64
+    epochs: 100
+    noise_type: "none"
+
+  - name: "head_lr1e-3_bs32"
+    train_mode: "head"
+    learning_rate: 1e-3
+    batch_size: 32
+    epochs: 100
+    noise_type: "none"
+
+  - name: "head_lr1e-3_bs16"
+    train_mode: "head"
+    learning_rate: 1e-3
+    batch_size: 16
+    epochs: 100
+    noise_type: "none"
+
+  - name: "head_lr1e-2_bs64"
+    train_mode: "head"
+    learning_rate: 1e-2
+    batch_size: 64
+    epochs: 100
+    noise_type: "none"
+
+  - name: "head_lr1e-2_bs32"
+    train_mode: "head"
+    learning_rate: 1e-2
+    batch_size: 32
+    epochs: 100
+    noise_type: "none"
+
+  - name: "head_lr1e-2_bs16"
+    train_mode: "head"
+    learning_rate: 1e-2
+    batch_size: 16
+    epochs: 100
+    noise_type: "none"
+
+  # =========================================================================
+  # PHASE 3: SCRATCH TRAINING (3 LR × 3 BS = 9 experiments)
+  # =========================================================================
+  # Purpose: Train all layers from scratch (weights reinitialized)
+  
+  - name: "scratch_lr1e-4_bs64"
     train_mode: "scratch"
     learning_rate: 1e-4
-    epochs: 200
     batch_size: 64
-    noise_type: "none"
-
-  - name: "scratch_lr1e-3"
-    train_mode: "scratch"
-    learning_rate: 1e-3
-    epochs: 200
-    batch_size: 64
-    noise_type: "none"
-
-  - name: "scratch_lr1e-2"
-    train_mode: "scratch"
-    learning_rate: 1e-2
-    epochs: 200
-    batch_size: 64
+    epochs: 100
     noise_type: "none"
 
   - name: "scratch_lr1e-4_bs32"
     train_mode: "scratch"
     learning_rate: 1e-4
-    epochs: 200
     batch_size: 32
-    noise_type: "none"
-
-  - name: "scratch_lr1e-3_bs32"
-    train_mode: "scratch"
-    learning_rate: 1e-3
-    epochs: 200
-    batch_size: 32
-    noise_type: "none"
-
-  - name: "scratch_lr1e-2_bs32"
-    train_mode: "scratch"
-    learning_rate: 1e-2
-    epochs: 200
-    batch_size: 32
+    epochs: 100
     noise_type: "none"
 
   - name: "scratch_lr1e-4_bs16"
     train_mode: "scratch"
     learning_rate: 1e-4
-    epochs: 200
     batch_size: 16
+    epochs: 100
+    noise_type: "none"
+
+  - name: "scratch_lr1e-3_bs64"
+    train_mode: "scratch"
+    learning_rate: 1e-3
+    batch_size: 64
+    epochs: 100
+    noise_type: "none"
+
+  - name: "scratch_lr1e-3_bs32"
+    train_mode: "scratch"
+    learning_rate: 1e-3
+    batch_size: 32
+    epochs: 100
     noise_type: "none"
 
   - name: "scratch_lr1e-3_bs16"
     train_mode: "scratch"
     learning_rate: 1e-3
-    epochs: 200
     batch_size: 16
+    epochs: 100
+    noise_type: "none"
+
+  - name: "scratch_lr1e-2_bs64"
+    train_mode: "scratch"
+    learning_rate: 1e-2
+    batch_size: 64
+    epochs: 100
+    noise_type: "none"
+
+  - name: "scratch_lr1e-2_bs32"
+    train_mode: "scratch"
+    learning_rate: 1e-2
+    batch_size: 32
+    epochs: 100
     noise_type: "none"
 
   - name: "scratch_lr1e-2_bs16"
     train_mode: "scratch"
     learning_rate: 1e-2
-    epochs: 200
     batch_size: 16
+    epochs: 100
     noise_type: "none"
 
+  # =========================================================================
+  # PHASE 4: LAYERS FINE-TUNING (3 LR × 3 BS = 9 experiments)
+  # =========================================================================
+  # Purpose: Unfreeze last 7 layers, keep body frozen
+  
+  - name: "layers_lr1e-4_bs64"
+    train_mode: "layers"
+    learning_rate: 1e-4
+    batch_size: 64
+    epochs: 100
+    unfreeze_layer_indices: [-7, -6, -5, -4, -3, -2, -1]
+    noise_type: "none"
+
+  - name: "layers_lr1e-4_bs32"
+    train_mode: "layers"
+    learning_rate: 1e-4
+    batch_size: 32
+    epochs: 100
+    unfreeze_layer_indices: [-7, -6, -5, -4, -3, -2, -1]
+    noise_type: "none"
+
+  - name: "layers_lr1e-4_bs16"
+    train_mode: "layers"
+    learning_rate: 1e-4
+    batch_size: 16
+    epochs: 100
+    unfreeze_layer_indices: [-7, -6, -5, -4, -3, -2, -1]
+    noise_type: "none"
+
+  - name: "layers_lr1e-3_bs64"
+    train_mode: "layers"
+    learning_rate: 1e-3
+    batch_size: 64
+    epochs: 100
+    unfreeze_layer_indices: [-7, -6, -5, -4, -3, -2, -1]
+    noise_type: "none"
+
+  - name: "layers_lr1e-3_bs32"
+    train_mode: "layers"
+    learning_rate: 1e-3
+    batch_size: 32
+    epochs: 100
+    unfreeze_layer_indices: [-7, -6, -5, -4, -3, -2, -1]
+    noise_type: "none"
+
+  - name: "layers_lr1e-3_bs16"
+    train_mode: "layers"
+    learning_rate: 1e-3
+    batch_size: 16
+    epochs: 100
+    unfreeze_layer_indices: [-7, -6, -5, -4, -3, -2, -1]
+    noise_type: "none"
+
+  - name: "layers_lr1e-2_bs64"
+    train_mode: "layers"
+    learning_rate: 1e-2
+    batch_size: 64
+    epochs: 100
+    unfreeze_layer_indices: [-7, -6, -5, -4, -3, -2, -1]
+    noise_type: "none"
+
+  - name: "layers_lr1e-2_bs32"
+    train_mode: "layers"
+    learning_rate: 1e-2
+    batch_size: 32
+    epochs: 100
+    unfreeze_layer_indices: [-7, -6, -5, -4, -3, -2, -1]
+    noise_type: "none"
+
+  - name: "layers_lr1e-2_bs16"
+    train_mode: "layers"
+    learning_rate: 1e-2
+    batch_size: 16
+    epochs: 100
+    unfreeze_layer_indices: [-7, -6, -5, -4, -3, -2, -1]
+    noise_type: "none"

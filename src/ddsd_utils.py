@@ -18,7 +18,7 @@ NDD_SUBFOLDERS = ["NDD_S"]              # Not device-directed
 DATA_DIR = "data"
 
 # Model paths
-PRETRAINED_MODEL_PATH = "trained_models/kws_ref_model"
+PRETRAINED_MODEL_PATH = "trained_models/kws_ref_model"  # Directory, not .h5
 RETRAINED_MODELS_DIR = "retrained_models"
 SAVE_DIR = "retrained_models"
 LOGS_DIR = "logs"

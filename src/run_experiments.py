@@ -13,12 +13,17 @@ def load_experiments(config_path="experiments.yaml"):
 
 def build_command(experiment):
     """Build command line arguments from experiment dict"""
-    cmd = ["python", "src/retrain.py"]
+    cmd = [sys.executable, "src/retrain.py"]
     
     for key, value in experiment.items():
         if key != "name":
             cmd.append(f"--{key}")
-            cmd.append(str(value))
+            
+            # Handle lists (e.g., unfreeze_layer_indices)
+            if isinstance(value, list):
+                cmd.extend(str(v) for v in value)
+            else:
+                cmd.append(str(value))
     
     return cmd
 

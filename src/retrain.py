@@ -167,7 +167,15 @@ def main():
     # Generate model name with timestamp
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     
-    model_name = f"DDSD_{args.train_mode}_{timestamp}"
+    # Add pruning info to name if applicable
+    if args.model_size == "layer":
+        pruning_tag = f"_rm_layers_{'_'.join(str(l) for l in args.remove_layers)}"
+    elif args.model_size == "block":
+        pruning_tag = f"_rm_blocks_{''.join(str(b) for b in args.remove_blocks)}"
+    else:
+        pruning_tag = ""
+    
+    model_name = f"DDSD_{args.train_mode}{pruning_tag}_{timestamp}"
     
     # Create model folder
     model_dir = os.path.join(RETRAINED_MODELS_DIR, model_name)

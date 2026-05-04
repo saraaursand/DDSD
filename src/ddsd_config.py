@@ -2,7 +2,6 @@
 Configuration and argument parsing for DDSD transfer learning training
 """
 import argparse
-from html import parser
 import os
 from ddsd_utils import DD_SUBFOLDERS, NDD_SUBFOLDERS
 
