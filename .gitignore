@@ -1,11 +1,24 @@
+# Virtual Environment
+venv/
+env/
+ENV/
+.venv
+
 # Data (private)
 data/
 
-# Other exclusions
+# Model outputs
 retrained_models/
 logs/
+
+# Python
 __pycache__/
 *.pyc
+*.pyo
+*.egg-info/
+.Python
+
+# Large files
 *.h5
 *.npz
 *.wav
@@ -14,3 +27,9 @@ __pycache__/
 .vscode/
 .idea/
 *.swp
+*.swo
+~*
+
+# OS
+.DS_Store
+Thumbs.db
