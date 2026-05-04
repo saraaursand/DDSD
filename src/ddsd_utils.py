@@ -3,6 +3,8 @@ DDSD (Device-Directed Speech Detection) utilities
 Adapted from kws_utils.py for binary classification task
 """
 
+import os
+
 # Import base utilities from kws_utils
 from kws_util import *
 
@@ -21,5 +23,12 @@ RETRAINED_MODELS_DIR = "retrained_models"
 SAVE_DIR = "retrained_models"
 LOGS_DIR = "logs"
 
+# Noise augmentation paths
+NOISE_DIR = "noise"
+BACKGROUND_NOISE_DIR_NAME = "noise"
+
+# Experiment logging
+EXPERIMENT_LOG_CSV = "experiments_log.csv"
+
 # Keep all audio processing params from kws_utils
-# (sample_rate, clip_duration_ms, window_size_ms, etc.)s
+# (sample_rate, clip_duration_ms, window_size_ms, etc.)

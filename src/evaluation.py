@@ -1,5 +1,10 @@
 """
-Evaluation metrics, results logging, and visualization
+Evaluation metrics, results logging, and visualization for DDSD transfer learning.
+Computes:
+- Test loss, accuracy, AUC
+- Equal Error Rate (EER)
+- Unweighted Average Recall (UAR)
+- Logs all results to CSV
 """
 import numpy as np
 import csv
@@ -7,25 +12,50 @@ import os
 import datetime
 import tensorflow as tf
 from sklearn.metrics import roc_curve
-import matplotlib.pyplot as plt
-from ddsd_utils import RETRAINED_MODELS_DIR, EXPERIMENT_LOG_CSV
+
 
 def compute_eer(model, dataset):
-    """Compute Equal Error Rate"""
+    """
+    Compute Equal Error Rate (EER) from model predictions.
+    
+    Args:
+        model: Trained Keras model
+        dataset: TF Dataset with test data
+    
+    Returns:
+        eer: Equal Error Rate value
+        eer_threshold: Threshold at which EER occurs
+        y_true: True labels (one-hot)
+        y_pred: Predicted probabilities
+    """
+    # Concatenate all batches
     y_true = np.concatenate([y.numpy() for _, y in dataset], axis=0)
     y_pred = model.predict(dataset)
     
+    # Use DD class (column 0) as positive class
     fpr, tpr, thresholds = roc_curve(y_true[:, 0], y_pred[:, 0])
     frr = 1 - tpr
     
+    # Find threshold where FPR = FRR (EER)
     eer_index = np.nanargmin(np.abs(fpr - frr))
     eer = (fpr[eer_index] + frr[eer_index]) / 2
     eer_threshold = thresholds[eer_index]
     
     return eer, eer_threshold, y_true, y_pred
 
+
 def compute_uar(y_true, y_pred):
-    """Compute Unweighted Average Recall (UAR)"""
+    """
+    Compute Unweighted Average Recall (UAR) for binary classification.
+    
+    Args:
+        y_true: True labels (one-hot encoded, shape (N, 2))
+        y_pred: Predicted probabilities (shape (N, 2))
+    
+    Returns:
+        uar: Unweighted Average Recall (average of recall per class)
+    """
+    # Convert from one-hot to class indices
     y_pred_labels = np.argmax(y_pred, axis=1)
     y_true_labels = np.argmax(y_true, axis=1)
     
@@ -36,44 +66,69 @@ def compute_uar(y_true, y_pred):
         recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
         recall_per_class.append(recall)
     
-    return np.mean(recall_per_class)
+    uar = np.mean(recall_per_class)
+    return uar
+
 
 def evaluate_model(model, test_ds):
-    """Run all evaluation metrics"""
+    """
+    Run all evaluation metrics on test set.
+    
+    Args:
+        model: Trained Keras model
+        test_ds: Test dataset
+    
+    Returns:
+        metrics: Dictionary with all evaluation metrics
+    """
+    print(f"\n{'='*60}")
+    print(f"EVALUATING ON TEST SET")
+    print(f"{'='*60}")
+    
+    # Standard metrics
     test_scores = model.evaluate(test_ds, return_dict=True)
+    
+    # EER and UAR
     eer, eer_threshold, y_true, y_pred = compute_eer(model, test_ds)
     uar = compute_uar(y_true, y_pred)
     
     metrics = {
-        'test_loss': test_scores['loss'],
-        'test_acc': test_scores['acc'],
-        'test_auc': test_scores['auc'],
-        'eer': eer,
-        'eer_threshold': eer_threshold,
-        'uar': uar,
+        'test_loss': float(test_scores['loss']),
+        'test_acc': float(test_scores['acc']),
+        'test_auc': float(test_scores['auc']),
+        'eer': float(eer),
+        'eer_threshold': float(eer_threshold),
+        'uar': float(uar),
     }
     
-    print(f"\n{'='*50}")
-    print(f"TEST SET METRICS")
-    print(f"{'='*50}")
-    print(f"Test Loss: {metrics['test_loss']:.6f}")
-    print(f"Test Acc:  {metrics['test_acc']:.6f}")
-    print(f"Test AUC:  {metrics['test_auc']:.6f}")
-    print(f"EER:       {metrics['eer']:.6f} ({metrics['eer']*100:.2f}%)")
-    print(f"UAR:       {metrics['uar']:.6f}")
-    print(f"{'='*50}\n")
+    # Print results
+    print(f"Test Loss:      {metrics['test_loss']:.6f}")
+    print(f"Test Accuracy:  {metrics['test_acc']:.6f}")
+    print(f"Test AUC:       {metrics['test_auc']:.6f}")
+    print(f"EER:            {metrics['eer']:.6f} ({metrics['eer']*100:.2f}%)")
+    print(f"EER Threshold:  {metrics['eer_threshold']:.6f}")
+    print(f"UAR:            {metrics['uar']:.6f}")
+    print(f"{'='*60}\n")
     
     return metrics
 
-def save_history(history, model_folder_path):
-    """Save training history as .npz file"""
+
+def save_history(history, save_path):
+    """
+    Save training history to .npz file.
+    
+    Args:
+        history: Keras history object from model.fit()
+        save_path: Path where to save (e.g., "model_history.npz")
+    
+    Returns:
+        save_path: Path to saved file
+    """
     if history is None:
         return None
     
-    model_name = os.path.basename(model_folder_path)
-    history_path = os.path.join(model_folder_path, f"{model_name}_history.npz")
     np.savez(
-        history_path,
+        save_path,
         loss=np.array(history.history['loss']),
         acc=np.array(history.history['acc']),
         auc=np.array(history.history['auc']),
@@ -81,94 +136,118 @@ def save_history(history, model_folder_path):
         val_acc=np.array(history.history['val_acc']),
         val_auc=np.array(history.history['val_auc']),
     )
-    print(f"✅ Training history saved to {history_path}")
-    return history_path
+    print(f"✅ Training history saved to {save_path}")
+    return save_path
 
-def plot_training_history(history_path):
-    """Plot training/validation curves from .npz file"""
-    data = np.load(history_path)
-    
-    fig, axes = plt.subplots(1, 3, figsize=(15, 4))
-    
-    # Loss
-    axes[0].plot(data['loss'], label='Train Loss', linewidth=2)
-    axes[0].plot(data['val_loss'], label='Val Loss', linewidth=2)
-    axes[0].set_xlabel('Epoch')
-    axes[0].set_ylabel('Loss')
-    axes[0].set_title('Loss over Epochs')
-    axes[0].legend()
-    axes[0].grid(True, alpha=0.3)
-    
-    # Accuracy
-    axes[1].plot(data['acc'], label='Train Acc', linewidth=2)
-    axes[1].plot(data['val_acc'], label='Val Acc', linewidth=2)
-    axes[1].set_xlabel('Epoch')
-    axes[1].set_ylabel('Accuracy')
-    axes[1].set_title('Accuracy over Epochs')
-    axes[1].legend()
-    axes[1].grid(True, alpha=0.3)
-    
-    # AUC
-    axes[2].plot(data['auc'], label='Train AUC', linewidth=2)
-    axes[2].plot(data['val_auc'], label='Val AUC', linewidth=2)
-    axes[2].set_xlabel('Epoch')
-    axes[2].set_ylabel('AUC')
-    axes[2].set_title('AUC over Epochs')
-    axes[2].legend()
-    axes[2].grid(True, alpha=0.3)
-    
-    plt.tight_layout()
-    plot_path = history_path.replace("_history.npz", "_plot.png")
-    plt.savefig(plot_path, dpi=150, bbox_inches='tight')
-    print(f"✅ Plot saved to {plot_path}")
-    plt.close()
 
-def log_experiment_to_csv(model_name, metrics, history, args, derived, n_train, n_val, n_test, trainable_params, total_params):
-    """Log experiment results to CSV at root level"""
-    csv_path = EXPERIMENT_LOG_CSV  # Now at root level
+def save_model(model, model_path):
+    """
+    Save trained model as .h5 file.
     
-    # Compute best validation metrics if trained
+    Args:
+        model: Trained Keras model
+        model_path: Path where to save
+    """
+    model.save(model_path)
+    print(f"✅ Model saved to {model_path}")
+
+
+def log_experiment_to_csv(csv_path, model_name, metrics, history, args, derived,
+                          n_train, n_val, n_test, total_params, trainable_params):
+    """
+    Log experiment results to CSV file.
+    
+    Args:
+        csv_path: Path to CSV file (e.g., "experiments_log.csv")
+        model_name: Name of the model
+        metrics: Dictionary with evaluation metrics
+        history: Keras history object (or None for baseline)
+        args: Configuration arguments object
+        derived: Dictionary with derived constants
+        n_train, n_val, n_test: Number of samples in each split
+        total_params: Total model parameters
+        trainable_params: Number of trainable parameters
+    """
+    # Compute training statistics if model was trained
     if history is not None:
-        best_val_loss = min(history.history['val_loss'])
-        best_val_acc = max(history.history['val_acc'])
-        best_val_auc = max(history.history['val_auc'])
+        best_val_loss = float(min(history.history['val_loss']))
+        best_val_acc = float(max(history.history['val_acc']))
+        best_val_auc = float(max(history.history['val_auc']))
         epochs_trained = len(history.history['loss'])
     else:
-        best_val_loss = best_val_acc = best_val_auc = "-"
+        best_val_loss = "-"
+        best_val_acc = "-"
+        best_val_auc = "-"
         epochs_trained = "-"
     
+    # Format unfrozen layers for logging
+    if args.train_mode == "layers":
+        if isinstance(args.unfreeze_layer_indices, list):
+            unfrozen_layers = ', '.join(str(i) for i in args.unfreeze_layer_indices)
+        else:
+            unfrozen_layers = "all"
+    else:
+        unfrozen_layers = "-"
+    
+    # Format removed layers/blocks
+    removed_layers = ','.join(str(l) for l in args.remove_layers) if args.remove_layers else "-"
+    removed_blocks = ','.join(str(b) for b in args.remove_blocks) if args.remove_blocks else "-"
+    
+    # Calculate model size in MB
+    model_size_mb = (total_params * 4) / (1024 * 1024)
+    
+    # Build CSV row
     row = {
         "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "model_name": model_name,
-        "train_mode": args.train_mode,
+        
+        # Architecture
         "model_size": args.model_size,
-        "removed_layers": ','.join(str(l) for l in args.remove_layers) if args.remove_layers else "-",
-        "removed_blocks": ','.join(str(b) for b in args.remove_blocks) if args.remove_blocks else "-",
+        "removed_layers": removed_layers,
+        "removed_blocks": removed_blocks,
+        "train_mode": args.train_mode,
+        "unfrozen_layers": unfrozen_layers,
+        
+        # Data
+        "dd_subfolders": ','.join(args.dd_subfolders),
+        "ndd_subfolders": ','.join(args.ndd_subfolders),
+        "dataset_scale": args.dataset_scale,
+        "dataset_size": args.dataset_size if args.dataset_size != -1 else "-",
+        "n_train": n_train,
+        "n_val": n_val,
+        "n_test": n_test,
+        
+        # Augmentation
         "noise_type": args.noise_type,
         "noise_scale": args.noise_scale,
         "noise_frac": args.noise_frac,
         "mixup_prob": args.mixup_prob,
         "mixup_alpha": args.mixup_alpha,
-        "n_train": n_train,
-        "n_val": n_val,
-        "n_test": n_test,
+        
+        # Training hyperparameters
+        "learning_rate": args.learning_rate,
         "batch_size": args.batch_size,
         "epochs": args.epochs,
         "epochs_trained": epochs_trained,
-        "learning_rate": args.learning_rate,
         "es_monitor": args.es_monitor if not args.disable_early_stopping else "-",
         "es_patience": args.es_patience if not args.disable_early_stopping else "-",
+        
+        # Training metrics
         "best_val_loss": best_val_loss,
         "best_val_acc": best_val_acc,
         "best_val_auc": best_val_auc,
+        
+        # Test metrics
         "test_loss": round(metrics['test_loss'], 6),
         "test_acc": round(metrics['test_acc'], 6),
         "test_auc": round(metrics['test_auc'], 6),
         "test_eer": round(metrics['eer'], 6),
         "test_uar": round(metrics['uar'], 6),
+        
+        # Model size
         "total_params": total_params,
         "trainable_params": trainable_params,
-        "model_size_mb": round((total_params * 4) / (1024 * 1024), 2),
+        "model_size_mb": round(model_size_mb, 2),
     }
     
     # Write CSV
@@ -179,36 +258,4 @@ def log_experiment_to_csv(model_name, metrics, history, args, derived, n_train, 
             writer.writeheader()
         writer.writerow(row)
     
-    print(f"✅ Results logged to {csv_path}")
-
-def save_results(model, metrics, history, args, derived):
-    """Orchestrate all saving: model in timestamped folder, history, plots, and CSV"""
-    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    model_name = f"DDSD_{args.train_mode}_{timestamp}"
-    
-    # Create experiment folder
-    model_folder = os.path.join(RETRAINED_MODELS_DIR, model_name)
-    os.makedirs(model_folder, exist_ok=True)
-    
-    model_path = os.path.join(model_folder, f"{model_name}.h5")
-    
-    # Save model
-    model.save(model_path)
-    print(f"✅ Model saved to {model_path}")
-    
-    # Save training history as .npz (inside same folder)
-    if history is not None:
-        history_path = save_history(history, model_folder)
-        # Plot the history (inside same folder)
-        plot_training_history(history_path)
-    
-    # Get model stats
-    total_params = sum(tf.size(w).numpy() for w in model.weights)
-    trainable_params = sum(tf.size(w).numpy() for w in model.trainable_weights)
-    
-    print(f"\n{'='*50}")
-    print(f"All results saved in: {model_folder}")
-    print(f"Params:    {trainable_params:,} / {total_params:,}")
-    print(f"{'='*50}\n")
-    
-    return model_name, total_params, trainable_params
+    print(f"✅ Results logged to {csv_path}\n")
