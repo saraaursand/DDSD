@@ -79,8 +79,11 @@ def set_trainable_layers(model, train_mode, unfreeze_indices="all"):
         print(f"  Trainable: ALL {len(model.layers)} layers (weights reinitialized)")
     
     elif train_mode == "layers":
+        # First freeze all
         for layer in model.layers:
             layer.trainable = False
+        
+        # Then selectively unfreeze
         if unfreeze_indices == "all":
             for layer in model.layers:
                 layer.trainable = True
@@ -88,11 +91,13 @@ def set_trainable_layers(model, train_mode, unfreeze_indices="all"):
         else:
             trainable_count = 0
             for idx in unfreeze_indices:
-                if 0 <= idx < len(model.layers):
+                try:
                     model.layers[idx].trainable = True
                     trainable_count += 1
+                except IndexError:
+                    print(f"⚠️  Warning: index {idx} out of range for {len(model.layers)} layers")
             print(f"  Trainable: {trainable_count} layers at indices {unfreeze_indices}")
-    
+
     elif train_mode == "baseline":
         for layer in model.layers:
             layer.trainable = False

@@ -23,8 +23,9 @@ def parse_args():
     parser.add_argument("--train_mode", type=str, default="layers",
                        choices=["head", "scratch", "layers", "baseline"],
                        help="Which layers to train")
-    parser.add_argument("--unfreeze_layer_indices", nargs="+", type=int,
-                   default=[-7, -6, -5, -4, -3, -2, -1])
+    parser.add_argument("--unfreeze_layer_indices", nargs="+",
+                   default=["-7", "-6", "-5", "-4", "-3", "-2", "-1"],
+                   help="Layers to unfreeze: 'all' or list of indices (e.g. -7 -6 -5 or all)")
     
     # --- Subfolder selection ---
     parser.add_argument("--dd_subfolders", type=str, nargs="+", 
@@ -104,6 +105,15 @@ def parse_args():
 def get_config():
     """Parse args and compute derived constants"""
     args = parse_args()
+    
+    # Convert unfreeze_layer_indices: handle "all" or list of strings
+    if len(args.unfreeze_layer_indices) == 1 and args.unfreeze_layer_indices[0].lower() == "all":
+        args.unfreeze_layer_indices = "all"
+    else:
+        try:
+            args.unfreeze_layer_indices = [int(idx) for idx in args.unfreeze_layer_indices]
+        except ValueError:
+            raise ValueError(f"unfreeze_layer_indices must be 'all' or list of integers, got {args.unfreeze_layer_indices}")
     
     # Validate splits
     assert abs(args.train_split + args.val_split + args.test_split - 1.0) < 1e-6, \
