@@ -146,30 +146,33 @@ def load_and_preprocess(filepath, label, args, derived, is_training=False, noise
             
             else:
                 # Custom noise from .wav file (babble, factory)
-                # noise_data is pre-loaded as numpy array
                 if noise_data is not None and len(noise_data) > 0:
-                    # Randomly select a chunk from pre-loaded noise
-                    noise_len = len(noise_data)
+                    noise_tensor = tf.constant(noise_data, dtype=tf.float32)
+                    noise_len = tf.shape(noise_tensor)[0]
+                    
                     if noise_len > derived['DESIRED_SAMPLES']:
+                        # Use tf.random.uniform and tf.slice (pure TF ops)
                         start_idx = tf.random.uniform(
                             [], 
                             0, 
                             noise_len - derived['DESIRED_SAMPLES'] + 1, 
                             dtype=tf.int32
                         )
-                        n = noise_data[start_idx:start_idx + derived['DESIRED_SAMPLES']]
+                        n = tf.slice(
+                            noise_tensor, 
+                            [start_idx], 
+                            [derived['DESIRED_SAMPLES']]
+                        )
                     else:
                         # Pad if noise is shorter
-                        n = np.pad(
-                            noise_data, 
-                            (0, derived['DESIRED_SAMPLES'] - noise_len), 
-                            'constant'
-                        )
+                        pad_amount = derived['DESIRED_SAMPLES'] - noise_len
+                        n = tf.pad(noise_tensor, [[0, pad_amount]])
+                    
                     n = tf.cast(n, tf.float32)
                 else:
-                    # Fallback to white noise if custom noise not available
+                    # Fallback to white noise
                     n = tf.random.normal(
-                        tf.shape(audio), 
+                        [derived['DESIRED_SAMPLES']], 
                         mean=0.0, 
                         stddev=1.0, 
                         dtype=tf.float32
@@ -182,8 +185,9 @@ def load_and_preprocess(filepath, label, args, derived, is_training=False, noise
             noise_rms = tf.sqrt(tf.reduce_mean(tf.square(n)))
             n = n * (audio_rms / (noise_rms + 1e-9))
             
-            # Mix: (1-scale)*audio + scale*noise
-            mixed = (1.0 - args.noise_scale) * audio + args.noise_scale * n
+            # Mix: (random uniform):
+            noise_scale_random = tf.random.uniform([], 0, args.noise_scale, dtype=tf.float32)
+            mixed = (1.0 - noise_scale_random) * audio + noise_scale_random * n
             return tf.clip_by_value(mixed, -1.0, 1.0)
         
         audio = tf.cond(apply_noise, apply_noise_fn, lambda: audio)
