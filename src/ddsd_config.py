@@ -2,6 +2,7 @@
 Configuration and argument parsing for DDSD transfer learning training
 """
 import argparse
+from email import parser
 import os
 from ddsd_utils import DD_SUBFOLDERS, NDD_SUBFOLDERS
 
@@ -49,10 +50,14 @@ def parse_args():
                        help="Fraction of training samples to augment with noise (0.0-1.0)")
     
     # --- Mixup augmentation ---
-    parser.add_argument("--mixup_prob", type=float, default=0.0,
-                       help="Probability of applying mixup per batch (0.0-1.0)")
-    parser.add_argument("--mixup_alpha", type=float, default=0.0,
-                       help="Beta distribution alpha for mixup lambda")
+    parser.add_argument('--mixup_alpha', type=float, default=0.0,
+                        help='Beta distribution parameter. Set to 1.0 to enable mixup.')
+    parser.add_argument('--mixup_prob', type=float, default=0.0,
+                        help='Probability of applying mixup. Set to 1.0 for always-on.')
+    parser.add_argument('--label_smoothing_min', type=float, default=0.1,
+                        help='Minimum label smoothing (paper optimal: 0.1)')
+    parser.add_argument('--label_smoothing_max', type=float, default=0.4,
+                        help='Maximum label smoothing (paper optimal: 0.4)')
     
     # --- Data split ---
     parser.add_argument("--train_split", type=float, default=0.8)
