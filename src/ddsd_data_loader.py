@@ -300,7 +300,7 @@ def load_custom_noise(noise_type, noise_dir="noise"):
 def make_dataset(filepaths, labels, args, derived, noise_data=None, 
                  shuffle=False, is_training=False):
     """
-    Create TensorFlow Dataset with batching, noise augmentation, and mixup.
+    Create TensorFlow Dataset with batching, noise augmentation, and spatial-mixup with label smoothing.
     
     Args:
         filepaths: Array of audio file paths
@@ -327,10 +327,10 @@ def make_dataset(filepaths, labels, args, derived, noise_data=None,
     ds = ds.map(map_fn, num_parallel_calls=tf.data.AUTOTUNE)
     ds = ds.batch(args.batch_size)
     
-    # --- MIXUP AUGMENTATION ---
+    # --- MIXUP AUGMENTATION WITH LABEL SMOOTHING ---
     if is_training and args.mixup_prob > 0.0 and args.mixup_alpha > 0.0:
         def apply_mixup(features, labels):
-            """Apply temporal mixup to batch."""
+            """Apply spatial-mixup with adaptive label smoothing (as per paper)."""
             # Decide if batch gets mixup
             do_mixup = tf.random.uniform([]) < args.mixup_prob
             
@@ -339,21 +339,27 @@ def make_dataset(filepaths, labels, args, derived, noise_data=None,
             
             batch_size = tf.shape(features)[0]
             
-            # Shuffle indices to create pairs
+            # ----- Create random pairing -----
             indices = tf.random.shuffle(tf.range(batch_size))
             features_shuffled = tf.gather(features, indices)
             labels_shuffled = tf.gather(labels, indices)
+
+            # Convert labels to float
+            labels_float = tf.cast(labels, tf.float32)
+            labels_shuffled_float = tf.cast(labels_shuffled, tf.float32)
             
-            # Sample lambda from Beta distribution
-            lam = tf.random.gamma([batch_size], args.mixup_alpha) / (
-                tf.random.gamma([batch_size], args.mixup_alpha) + 
-                tf.random.gamma([batch_size], args.mixup_alpha)
-            )
-            lam = tf.clip_by_value(lam, 0.0, 1.0)
+            # ----- Sample lambda from Beta(alpha, alpha) -----
+            gamma1 = tf.random.gamma([batch_size], args.mixup_alpha)
+            gamma2 = tf.random.gamma([batch_size], args.mixup_alpha)
+            lam = gamma1 / (gamma1 + gamma2)
+            lam = tf.clip_by_value(lam, 1e-5, 1.0 - 1e-5)
             
-            # Mix along time axis (axis 1)
+            # ----- SPATIAL MIXUP (time-axis concatenation) -----
             time_steps = tf.shape(features)[1]
-            cut_indices = tf.cast(tf.round(lam * tf.cast(time_steps, tf.float32)), tf.int32)
+            cut_indices = tf.cast(
+                tf.round(lam * tf.cast(time_steps, tf.float32)), 
+                tf.int32
+            )
             
             # Create mask for time axis
             time_range = tf.range(time_steps)[tf.newaxis, :, tf.newaxis, tf.newaxis]
@@ -363,19 +369,50 @@ def make_dataset(filepaths, labels, args, derived, noise_data=None,
             # Mix features
             mixed_features = mask * features + (1.0 - mask) * features_shuffled
             
-            # Mix labels
-            lam_expanded = tf.expand_dims(tf.cast(lam, tf.float32), axis=1)
-            labels_float = tf.cast(labels, tf.float32)
-            labels_shuffled_float = tf.cast(labels_shuffled, tf.float32)
-            mixed_labels = lam_expanded * labels_float + (1.0 - lam_expanded) * labels_shuffled_float
+            # ----- LABEL SMOOTHING (Equation 7 from paper) -----
+            # b = -4(b_max - b_min)(lambda - 0.5)^2 + b_max
+            b_min = args.label_smoothing_min  # 0.1
+            b_max = args.label_smoothing_max  # 0.4
+            
+            b = -4.0 * (b_max - b_min) * tf.square(lam - 0.5) + b_max
+            
+            # Same-class handling: use minimum smoothing for same class pairs
+            same_class = tf.reduce_all(
+                tf.equal(labels_float, labels_shuffled_float),
+                axis=1
+            )
+
+            b = tf.where(same_class, tf.ones_like(b) * b_min, b)
+            
+            b = tf.expand_dims(b, axis=1)  # Shape: [batch_size, 1]
+
+            # ----- Mix labels with smoothing -----
+            # ỹ = (1 - b)(λy_i + (1 - λ)y_j) + b/N
+            # where N = number of classes
+            lam_expanded = tf.expand_dims(lam, axis=1)
+            
+            # Linear interpolation of labels
+            interpolated_labels = (
+                lam_expanded * labels_float + 
+                (1.0 - lam_expanded) * labels_shuffled_float
+            )
+            
+            # Apply label smoothing
+            num_classes = tf.cast(tf.shape(labels_float)[1], tf.float32)
+            mixed_labels = (
+                (1.0 - b) * interpolated_labels + 
+                b / num_classes
+            )
             
             return mixed_features, mixed_labels
         
         ds = ds.map(apply_mixup, num_parallel_calls=tf.data.AUTOTUNE)
     else:
         # Just cast labels to float32 for consistency
-        ds = ds.map(lambda x, y: (x, tf.cast(y, tf.float32)), 
-                   num_parallel_calls=tf.data.AUTOTUNE)
+        ds = ds.map(
+            lambda x, y: (x, tf.cast(y, tf.float32)), 
+            num_parallel_calls=tf.data.AUTOTUNE
+        )
     
     return ds.prefetch(tf.data.AUTOTUNE)
 
