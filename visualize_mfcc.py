@@ -124,19 +124,25 @@ def add_noise(audio, noise_type='white', noise_scale=0.1, noise_data=None, deriv
     mixed = (1.0 - noise_scale) * audio + noise_scale * n
     return tf.clip_by_value(mixed, -1.0, 1.0).numpy()
 
-def apply_mixup(mfcc1, mfcc2, alpha=1.0):
-    """Apply mixup augmentation to MFCCs - matches training code exactly"""
-    # Sample lambda from Beta distribution (NOT uniform!)
-    lam = np.random.beta(alpha, alpha)
+def apply_mixup(mfcc1, mfcc2, alpha=0.2, b_min=0.1, b_max=0.4):
+    # Sample lambda from Beta(alpha, alpha) using gamma ratio (matches training)
+    gamma1 = np.random.gamma(alpha, 1.0)
+    gamma2 = np.random.gamma(alpha, 1.0)
+    lam = gamma1 / (gamma1 + gamma2)
+    lam = np.clip(lam, 1e-5, 1.0 - 1e-5)
     
-    # Mix along time axis - create hard cutoff (temporal concatenation)
+    # Spatial mixup along time axis
     time_steps = mfcc1.shape[0]
     cut_idx = int(np.round(lam * time_steps))
+    cut_idx = np.clip(cut_idx, 0, time_steps)  # Ensure valid index
     
-    # Create mixed MFCC with visible boundary
+    # Mix features
     mixed = np.vstack([mfcc1[:cut_idx], mfcc2[cut_idx:]])
     
-    return mixed, lam, cut_idx  # Return cut_idx to show the line
+    # Label smoothing parameter (matches training Equation 7)
+    b = -4.0 * (b_max - b_min) * (lam - 0.5) ** 2 + b_max
+    
+    return mixed, lam, cut_idx, b
 
 def get_label_from_folder(folder_path):
     """Convert folder path to nice label"""
@@ -259,7 +265,7 @@ def main():
         plot_mfcc(mfcc_noisy, folder_path=folder_path, 
                   noise_type=noise_type, noise_scale=noise_scale)
     
-    # Mixup augmentation
+        # Mixup augmentation
     mixup_alpha = None
     add_mixup_aug = input("\nAdd mixup augmentation? (y/n): ").strip().lower() == 'y'
     if add_mixup_aug:
@@ -274,26 +280,36 @@ def main():
         mfcc_2 = extract_mfcc_exact(audio_2, args, derived)
         
         mixup_alpha = float(input("Mixup alpha (default 1.0): ").strip() or "1.0")
+        b_min = float(input("Label smoothing min (default 0.1): ").strip() or "0.1")
+        b_max = float(input("Label smoothing max (default 0.4): ").strip() or "0.4")
         
-        mfcc_mixed, lam, cut_idx = apply_mixup(mfcc_original, mfcc_2, mixup_alpha)
+        mfcc_mixed, lam, cut_idx, b = apply_mixup(mfcc_original, mfcc_2, mixup_alpha, b_min, b_max)
         
         fig, axes = plt.subplots(1, 3, figsize=(18, 5))
         
+        # Original
         im1 = axes[0].imshow(mfcc_original.T, aspect='auto', origin='lower', cmap='plasma')
-        axes[0].set_title(get_label_from_folder(folder_path), fontweight='bold')
+        axes[0].set_title(f"{get_label_from_folder(folder_path)}\n(Sample 1)", fontweight='bold')
         axes[0].set_xlabel('Time Frame')
         axes[0].set_ylabel('MFCC Coefficient')
         plt.colorbar(im1, ax=axes[0])
         
+        # Second sample
         im2 = axes[1].imshow(mfcc_2.T, aspect='auto', origin='lower', cmap='plasma')
-        axes[1].set_title(get_label_from_folder(folder_path), fontweight='bold')
+        axes[1].set_title(f"{get_label_from_folder(folder_path)}\n(Sample 2)", fontweight='bold')
         axes[1].set_xlabel('Time Frame')
         axes[1].set_ylabel('MFCC Coefficient')
         plt.colorbar(im2, ax=axes[1])
         
+        # Mixed with visualization info
         im3 = axes[2].imshow(mfcc_mixed.T, aspect='auto', origin='lower', cmap='plasma')
-        axes[2].axhline(y=cut_idx-0.5, color='red', linewidth=2, linestyle='--', label=f'Cut at frame {cut_idx}')
-        axes[2].set_title(build_title(folder_path, mixup_alpha=mixup_alpha), fontweight='bold')
+        axes[2].axvline(x=cut_idx-0.5, color='red', linewidth=2, linestyle='--', 
+                       label=f'Cut at frame {cut_idx}/{mfcc_original.shape[0]}')
+        axes[2].set_title(
+            f"Mixed (α={mixup_alpha}, λ={lam:.3f}, b={b:.3f})\n"
+            f"({cut_idx} frames from S1, {mfcc_original.shape[0]-cut_idx} from S2)",
+            fontweight='bold'
+        )
         axes[2].set_xlabel('Time Frame')
         axes[2].set_ylabel('MFCC Coefficient')
         axes[2].legend()
@@ -301,6 +317,17 @@ def main():
         
         plt.tight_layout()
         plt.show()
+        
+        # Print mixing info
+        print(f"\n{'='*60}")
+        print(f"Mixup Summary:")
+        print(f"  Alpha (Beta param): {mixup_alpha}")
+        print(f"  Lambda (mixing ratio): {lam:.4f}")
+        print(f"  Cut index: {cut_idx} / {mfcc_original.shape[0]}")
+        print(f"  Label smoothing (b): {b:.4f}")
+        print(f"  Sample 1: {cut_idx} frames ({cut_idx/mfcc_original.shape[0]*100:.1f}%)")
+        print(f"  Sample 2: {mfcc_original.shape[0]-cut_idx} frames ({(mfcc_original.shape[0]-cut_idx)/mfcc_original.shape[0]*100:.1f}%)")
+        print(f"{'='*60}\n")
     
     print(f"\n{'='*60}")
     print("✅ Done!")
