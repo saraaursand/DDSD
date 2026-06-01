@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 """
 Load and run experiments from YAML config
 """

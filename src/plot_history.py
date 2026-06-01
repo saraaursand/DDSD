@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 """
 Plot training history from saved .npz files
 Specify model names at the top, then run the script

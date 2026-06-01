@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 """
 Script to visualize MFCC features using EXACT same processing as training.
 Also supports noise and mixup augmentation visualization.
