@@ -245,7 +245,7 @@ def extract_lfbe(audio, args, derived):
         pad_end=False
     )
     magspec = tf.abs(stfts)
-    num_spectrogram_bins = magspec.shape[-1]
+    num_spectrogram_bins = tf.shape(magspec)[-1]
     
     powspec = (1 / derived['WINDOW_SIZE_SAMPLES']) * tf.square(magspec)
     powspec = tf.clip_by_value(powspec, 1e-30, tf.reduce_max(powspec))
