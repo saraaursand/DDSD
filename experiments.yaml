@@ -1,8 +1,28 @@
-# Write multiple experiments here, under is a baseline example.
-# You can add as many experiments as you like, and they will be run in sequence.
+# DDSD Training Experiments
+# Define experiments to run sequentially. Each experiment trains a separate model.
 
 experiments:
 
   - name: "baseline"
     train_mode: "baseline"
+
+  - name: "scratch_with_mixup"
+    train_mode: "scratch"
     feature_type: "mfcc"
+    noise_type: "none"
+    mixup_prob: 0.5
+    mixup_alpha: 0.2
+
+  - name: "head_only_with_block4_removed"
+    train_mode: "head"
+    feature_type: "mfcc"
+    noise_type: "none"
+    model_size: "block"
+    remove_blocks: [4]
+
+  - name: "layers_with_babble_noise"
+    train_mode: "layers"
+    feature_type: "mfcc"
+    noise_type: "babble"
+    noise_scale: 0.1
+    noise_frac: 0.5
