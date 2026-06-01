@@ -7,7 +7,7 @@ Transfer learning from Keyword Spotting (KWS) to Device-Directed Speech Detectio
 This repository implements transfer learning to adapt a pre-trained Keyword Spotting (KWS) model from the [MLCommons Tiny](https://github.com/mlcommons/tiny) project to the task of **Device Directed Speech Detection (DDSD)** - binary classification to determine whether speech is directed towards a device or not.
 
 The model learns to distinguish between:
-- **DD (DeviceDirected)**
+- **DD (Device Directed)**
 - **NDD (Non-Device Directed)**
 
 ### Key Features
