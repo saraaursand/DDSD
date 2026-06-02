@@ -31,7 +31,7 @@ def plot_single(model_name, display_name, data):
     axes[0].plot(data['val_loss'], label='Val', linewidth=2, color='blue', linestyle='-')
     axes[0].set_xlabel('Epoch')
     axes[0].set_ylabel('Loss')
-    axes[0].set_title('Validation Loss')
+    axes[0].set_title('Loss')
     axes[0].legend()
     axes[0].grid(True, alpha=0.3)
     
@@ -40,7 +40,7 @@ def plot_single(model_name, display_name, data):
     axes[1].plot(data['val_acc'], label='Val', linewidth=2, color='blue', linestyle='-')
     axes[1].set_xlabel('Epoch')
     axes[1].set_ylabel('Accuracy')
-    axes[1].set_title('Validation Accuracy')
+    axes[1].set_title('Accuracy')
     axes[1].set_ylim([0, 1])
     axes[1].legend()
     axes[1].grid(True, alpha=0.3)
@@ -50,7 +50,7 @@ def plot_single(model_name, display_name, data):
     axes[2].plot(data['val_auc'], label='Val', linewidth=2, color='blue', linestyle='-')
     axes[2].set_xlabel('Epoch')
     axes[2].set_ylabel('AUC')
-    axes[2].set_title('Validation AUC')
+    axes[2].set_title('AUC')
     axes[2].set_ylim([0, 1])
     axes[2].legend()
     axes[2].grid(True, alpha=0.3)
@@ -81,7 +81,7 @@ def plot_comparison(model_dict, histories):
         axes[2].plot(data['val_auc'], label=f'{display_name} (Val)', linewidth=2, color=color, linestyle='-')
     
     # Configure axes
-    titles = ['Validation Loss', 'Validation Accuracy', 'Validation AUC']
+    titles = ['Loss', 'Accuracy', 'AUC']
     
     for j in range(3):
         axes[j].set_title(titles[j], fontsize=12)
