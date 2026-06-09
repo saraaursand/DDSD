@@ -83,22 +83,31 @@ DDSD/
 - Matplotlib ≥ 3.7.0
 
 
-## Attribution
+## Attribution and Licenses
 
 This project builds upon:
-- **KWS Model**: [MLCommons Tiny](https://github.com/mlcommons/tiny) - reference keyword spotting model and data loading utilities
-- **Noise Data**: [Noises Repository](https://github.com/speechdnn/Noises) - babble and factory noise samples for augmentation
 
-The following files are adapted from the Tiny repository:
-- `src/kws_util.py`
-- `src/kws_data_loader.py`
-- `trained_models/kws_ref_model/`
+### MLCommons Tiny
+- **Source**: [MLCommons Tiny](https://github.com/mlcommons/tiny)
+- **License**: Apache License 2.0
+- **Usage**: Reference keyword spotting model and data loading utilities
+- **Files**: 
+  - `src/kws_util.py`
+  - `src/kws_data_loader.py`
+  - `trained_models/kws_ref_model/`
 
-The following noise samples are from the Noises repository:
-- `noise/babble/`
-- `noise/factory/`
+### Noises Repository
+- **Source**: [Noises Repository](https://github.com/speechdnn/Noises)
+- **License**: Research/Academic use only (see notice below)
+- **Usage**: Babble and factory noise samples for augmentation
+- **Files**:
+  - `noise/babble/`
+  - `noise/factory/`
 
 White and pink noise used for augmentation are synthetically generated during training.
+
+### License Notice for Noises Repository
+The noise data from the Noises repository is provided under the restriction: "Just used for research or study, please be not for commercial." This project uses these samples for academic research purposes only.
 
 ## Author Notes
 
